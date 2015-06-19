@@ -96,3 +96,14 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
+'http://tieba.baidu.com/f?kw=vb&ie=utf-8&pn=50
+Private Sub btnBegin_Click()
+    Dim barName As String
+    Dim pageIndex As Integer
+    
+    barName = txtBarName.Text
+    pageIndex = CInt(txtPages.Text)
+    
+    Dim Tb As New TiebaCollector
+    Tb.s
+End Sub

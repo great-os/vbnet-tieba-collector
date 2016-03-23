@@ -13,10 +13,14 @@ Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
 Attribute VB_Ext_KEY = "SavedWithClassBuilder6" ,"Yes"
 Attribute VB_Ext_KEY = "Top_Level" ,"Yes"
+'////////说明////////
+'使用前，请先引用：Microsoft ActiveX Data Objects 2.5 Library
+'引用方式：工程→引用→Microsoft ActiveX Data Objects 2.5 Library
+
 
 '最后修改日期：2015年1月15日22:16:43
-'2015年1月15日22:19:23      全部重新格式化
-
+'2015年01月15日22:19:23   全部重新格式化
+'2016年02月09日15:33:17   更新部分Adodb缺失
 '成员变量：连接对象
 Private m_Conn       As ADODB.Connection
 
@@ -134,7 +138,7 @@ End Property
 '</CSCM>
 Public Function ExecQuery(ByVal SqlStr As String) As ADODB.Recordset
 
-    Dim tempRes As New Recordset
+    Dim tempRes As New ADODB.Recordset
 
     Set m_Command = New ADODB.Command
     Call OpenConn
@@ -164,9 +168,11 @@ End Function
 Public Function ExecParamQuery(ByVal SqlStr As String, _
                                ParamArray Params()) As ADODB.Recordset
 
-    Dim tempRes As New Recordset
+    Dim tempRes As New ADODB.Recordset
 
     Dim i       As Long
+    
+    Dim paramArr As Variant
 
     Set m_Command = New ADODB.Command
     '打开连接
@@ -174,16 +180,30 @@ Public Function ExecParamQuery(ByVal SqlStr As String, _
     m_Command.ActiveConnection = m_Conn
     m_Command.CommandText = SqlStr
     m_Command.CommandType = adCmdText
+    
+    '过滤嵌套情况
+    paramArr = Params
+    If VarType(Params(0)) = 8204 Then
+      paramArr = Params(0)
+    End If
 
     '设置参数
     With m_Command
+    
 
-        For Each param In Params
+        For Each param In paramArr
 
             Dim Para As ADODB.Parameter
 
             Set Para = .CreateParameter(CStr(i), GetVarType(param), adParamInput, LenB(param))
             Para.Value = param
+            If VarType(param) = vbEmpty Then
+              Para.Size = 1
+            ElseIf VarType(param) = vbString Then
+              If LenB(param) = 0 Then
+                Para.Size = 1
+              End If
+            End If
             .Parameters.Append Para
         Next
 
@@ -258,6 +278,8 @@ Public Function ExecParamNonQuery(ByVal SqlStr As String, ParamArray Params()) A
     Dim i            As Long
 
     Dim affectedRows As Long
+    
+    Dim paramArr As Variant
 
     Set m_Command = New ADODB.Command
     '打开连接
@@ -265,16 +287,27 @@ Public Function ExecParamNonQuery(ByVal SqlStr As String, ParamArray Params()) A
     m_Command.ActiveConnection = m_Conn
     m_Command.CommandText = SqlStr
     m_Command.CommandType = adCmdText
-
+    '过滤嵌套情况
+    paramArr = Params
+    If VarType(Params(0)) = 8204 Then
+      paramArr = Params(0)
+    End If
     '设置参数
     With m_Command
 
-        For Each param In Params
+        For Each param In paramArr
 
             Dim Para As ADODB.Parameter
 
             Set Para = .CreateParameter(CStr(i), GetVarType(param), adParamInput, LenB(param))
             Para.Value = param
+            If VarType(param) = vbEmpty Then
+              Para.Size = 1
+            ElseIf VarType(param) = vbString Then
+              If LenB(param) = 0 Then
+                Para.Size = 1
+              End If
+            End If
             .Parameters.Append Para
         Next
 
@@ -343,7 +376,7 @@ Public Sub TransData(ByVal SourceDb As String, _
                      ByVal DestDb As String, _
                      ParamArray tableNames())
 
-    Dim tableName As Variant
+    Dim TableName As Variant
 
     m_Me.SetConnToFile SourceDb
 
@@ -353,9 +386,9 @@ Public Sub TransData(ByVal SourceDb As String, _
 
     End If
 
-    For Each tableName In tableNames
+    For Each TableName In tableNames
 
-        m_Me.ExecQuery "select * into [" & DestDb & "]." & tableName & " from " & tableName
+        m_Me.ExecQuery "select * into [" & DestDb & "]." & TableName & " from " & TableName
     Next
 
 End Sub
@@ -401,14 +434,14 @@ Public Function ExecParamQueryScalar(ByVal SqlStr As String, _
 
     Dim varResult As Variant
 
-    Dim tmpRes    As Recordset
+    Dim tmpRes    As ADODB.Recordset
 
-    Set tmpRes = ExecParamQuery(SqlStr, Params(0))
+    Set tmpRes = ExecParamQuery(SqlStr, Params)
 
     If tmpRes.RecordCount <= 0 Then
         Set ExecParamQueryScalar = Nothing
     Else
-        ExecParamQueryScalar = tmpRes.Fields(0).Value
+        ExecParamQueryScalar = tmpRes.fields(0).Value
     End If
 
     ReleaseRecordset tmpRes
@@ -431,14 +464,14 @@ Public Function ExecQueryScalar(ByVal SqlStr As String) As Variant
 
     Dim varResult As Variant
 
-    Dim tmpRes    As Recordset
+    Dim tmpRes    As ADODB.Recordset
 
     Set tmpRes = ExecQuery(SqlStr)
 
     If tmpRes.RecordCount <= 0 Then
         Set ExecQueryScalar = Nothing
     Else
-        ExecQueryScalar = tmpRes.Fields(0).Value
+        ExecQueryScalar = tmpRes.fields(0).Value
     End If
 
     ReleaseRecordset tmpRes
@@ -495,33 +528,32 @@ End Sub
 ' Parameters :       Value (Variant)
 '--------------------------------------------------------------------------------
 '</CSCM>
-Private Function GetVarType(ByRef Value As Variant) As DataTypeEnum
+Private Function GetVarType(ByRef Value As Variant) As ADODB.DataTypeEnum
 
     Dim k As New ADODB.Command
 
     Select Case VarType(Value)
 
         Case VbVarType.vbString
-            GetVarType = DataTypeEnum.adVarChar
+            GetVarType = ADODB.DataTypeEnum.adVarWChar
 
         Case VbVarType.vbInteger
-            GetVarType = DataTypeEnum.adSmallInt
+            GetVarType = ADODB.DataTypeEnum.adSmallInt
 
         Case VbVarType.vbBoolean
-            GetVarType = DataTypeEnum.adBoolean
+            GetVarType = ADODB.DataTypeEnum.adBoolean
 
         Case VbVarType.vbCurrency
-            GetVarType = DataTypeEnum.adCurrency
+            GetVarType = ADODB.DataTypeEnum.adCurrency
 
         Case VbVarType.vbDate
-            GetVarType = DataTypeEnum.adDate
+            GetVarType = ADODB.DataTypeEnum.adDate
 
         Case 8209
-            GetVarType = DataTypeEnum.adLongVarBinary
+            GetVarType = ADODB.DataTypeEnum.adLongVarBinary
 
         Case Else
-            GetVarType = DataTypeEnum.adVariant
+            GetVarType = ADODB.DataTypeEnum.adVariant
     End Select
 
 End Function
-
